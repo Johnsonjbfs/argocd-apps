@@ -1,0 +1,94 @@
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+
+metadata:
+  name: ack-eks-controller
+  namespace: argocd
+
+spec:
+  goTemplate: true
+  goTemplateOptions:
+    - missingkey=error
+
+  generators:
+    - clusters:
+        selector:
+          matchLabels:
+            environment: test
+            cloud: aws
+        values:
+          revision: "1.x"
+          autoSync: "true"
+
+    - clusters:
+        selector:
+          matchLabels:
+            environment: development
+            cloud: aws
+        values:
+          revision: "1.x"
+          autoSync: "false"
+
+    - clusters:
+        selector:
+          matchLabels:
+            environment: qa
+            cloud: aws
+        values:
+          revision: "1.x"
+          autoSync: "false"
+
+    - clusters:
+        selector:
+          matchLabels:
+            environment: production
+            cloud: aws
+        values:
+          revision: "1.x"
+          autoSync: "false"
+
+  template:
+    metadata:
+      name: 'eks-controller-{{ .name }}'
+
+    spec:
+      project: '{{ .name }}'
+
+      sources:
+        - repoURL: oci://jnj-oci.artifactrepo.jnj.com/aws-controllers-k8s/eks-chart
+          targetRevision: '{{ .values.revision }}'
+          helm:
+            releaseName: eks-controller
+            valueFiles:
+              - $values/values/apps/ack/eks/values.yaml
+            parameters:
+              - name: aws.region
+                value: '{{ index .metadata.labels "region" }}'
+
+              - name: serviceAccount.annotations.eks\.amazonaws\.com/role-arn
+                value: 'arn:aws:iam::{{ index .metadata.labels "aws-account-num" }}:role/ack-eks-controller-{{ .name }}'
+
+        - repoURL: https://sourcecode.jnj.com/scm/asx-jbfs/argocd-apps.git
+          targetRevision: main
+          ref: values
+
+        - repoURL: https://sourcecode.jnj.com/scm/asx-jbfs/argocd-apps.git
+          targetRevision: main
+          path: 'apps/ack/eks/{{ .name }}/extra-manifests/'
+
+      destination:
+        name: '{{ .name }}'
+        namespace: ack-system
+
+      syncPolicy:
+        syncOptions:
+          - CreateNamespace=true
+
+  templatePatch: |
+    {{- if eq .values.autoSync "true" }}
+    spec:
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+    {{- end }}
