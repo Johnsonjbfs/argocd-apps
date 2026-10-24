@@ -1,0 +1,83 @@
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: eks-node-monitoring-agent
+  namespace: argocd
+
+spec:
+  goTemplate: true
+  goTemplateOptions:
+    - [missingkey=error]
+
+  generators:
+    - clusters:
+        selector:
+          matchLabels:
+            environment: test
+            cloud: aws
+        values:
+          autoSync: "true"
+
+    - clusters:
+        selector:
+          matchLabels:
+            environment: development
+            cloud: aws
+        values:
+          autoSync: "false"
+
+    - clusters:
+        selector:
+          matchLabels:
+            environment: qa
+            cloud: aws
+        values:
+          autoSync: "false"
+
+    - clusters:
+        selector:
+          matchLabels:
+            environment: production
+            cloud: aws
+        values:
+          autoSync: "false"
+
+  template:
+    metadata:
+      name: 'node-monit-agent-{{ .name }}'
+
+    spec:
+      project: '{{ .name }}'
+
+      sources:
+        - repoURL: 'https://sourcecode.jnj.com/scm/asx-jbfs/argocd-apps.git'
+          targetRevision: main
+          path: apps/eks-node-monitoring-agent/
+          kustomize:
+            patches:
+              - target:
+                  kind: Addon
+                  name: eks-node-monitoring-agent
+                patch: |-
+                  - op: replace
+                    path: /spec/clusterName
+                    value: '{{ .name }}'
+
+      destination:
+        name: '{{ .name }}'
+        namespace: eks-addons
+
+      syncPolicy:
+        syncOptions:
+          - CreateNamespace=true
+
+  templatePatch: |
+    {{- if eq .values.autoSync "true" }}
+    spec:
+      syncPolicy:
+        syncOptions:
+          - CreateNamespace=true
+        automated:
+          prune: true
+          selfHeal: true
+    {{- end }}
