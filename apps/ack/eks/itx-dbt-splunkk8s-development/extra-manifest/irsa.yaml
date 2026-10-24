@@ -1,0 +1,55 @@
+#initial argocd deploy
+apiVersion: iam.services.k8s.aws/v1alpha1
+kind: Role
+metadata:
+  name: ack-eks-controller-itx-dbt-splunkk8s-development
+spec:
+  name: ack-eks-controller-itx-dbt-splunkk8s-development
+  description: "IRSA Role for ack-eks-controller-itx-dbt-splunkk8s-development"
+  maxSessionDuration: 43200
+  assumeRolePolicyDocument: |
+    {
+      "Version": "2012-10-17",
+      "Statement": [
+        {
+          "Effect": "Allow",
+          "Principal": {
+            "Federated": "arn:aws:iam::945237657869:oidc-provider/oidc.eks.us-east-1.amazonaws.com/id/C8DF195104639062E0272A1A8F20EF2A"
+          },
+          "Action": "sts:AssumeRoleWithWebIdentity",
+          "Condition": {
+            "StringEquals": {
+              "oidc.eks.us-east-1.amazonaws.com/id/C8DF195104639062E0272A1A8F20EF2A:sub": "system:serviceaccount:ack-system:ack-eks-controller",
+              "oidc.eks.us-east-1.amazonaws.com/id/C8DF195104639062E0272A1A8F20EF2A:aud": "sts.amazonaws.com"
+            }
+          }
+        }
+      ]
+    }
+  permissionsBoundary: "arn:aws:iam::945237657869:policy/itx/core/VpcxPermissionsBoundaryPolicy1"
+  policies:
+    - "arn:aws:iam::945237657869:policy/itx/core/VpcxDenyPolicy2"
+    - "arn:aws:iam::945237657869:policy/itx/core/VpcxDenyPolicy1"
+    - "arn:aws:iam::945237657869:policy/itx/core/VpcxMembersAndOwnersPolicy1"
+  inlinePolicies:
+    ack-eks: |
+      {
+        "Version": "2012-10-17",
+        "Statement": [
+          {
+            "Effect": "Allow",
+            "Action": [
+              "eks:*",
+              "iam:GetRole",
+              "iam:PassRole",
+              "iam:ListAttachedRolePolicies",
+              "ec2:DescribeSubnets"
+            ],
+            "Resource": "*"
+          }
+        ]
+      }
+
+  tags:
+    - key: managed_by
+      value: ack-eks-controller
