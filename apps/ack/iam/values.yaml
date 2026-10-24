@@ -1,0 +1,14 @@
+fullnameOverride: iam-controller
+
+image:
+  repository: jnj-oci.artifactrepo.jnj.com/aws-controllers-k8s/iam-controller
+  pullSecrets:
+    - jnj-artifactory
+
+deployment:
+  labels:
+    application-id: "APP000020017288"
+
+serviceAccount:
+  create: true
+  name: ack-iam-controller
